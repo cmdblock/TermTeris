@@ -180,6 +180,10 @@ void mergeBlock() {
 
 // 清除已完成的行
 void clearLines() {
+    int linesCleared = 0;  // 记录一次性消除的行数
+    int linesToClear[HEIGHT];  // 记录要消除的行
+    
+    // 先找出所有需要消除的行
     for (int i = HEIGHT - 1; i >= 0; i--) {
         int complete = 1;
         for (int j = 0; j < WIDTH; j++) {
@@ -190,12 +194,35 @@ void clearLines() {
         }
         
         if (complete) {
-            score += 100;
-            for (int k = i; k > 0; k--) {
+            linesToClear[linesCleared] = i;
+            linesCleared++;
+        }
+    }
+    
+    // 根据消除的行数计算得分
+    if (linesCleared > 0) {
+        switch (linesCleared) {
+            case 1:
+                score += 100;  // 单行消除
+                break;
+            case 2:
+                score += 300;  // 双行消除
+                break;
+            case 3:
+                score += 500;  // 三行消除
+                break;
+            case 4:
+                score += 800;  // 四行消除
+                break;
+        }
+        
+        // 执行消除操作
+        for (int i = 0; i < linesCleared; i++) {
+            int clearLine = linesToClear[i];
+            for (int k = clearLine; k > 0; k--) {
                 memcpy(board[k], board[k-1], sizeof(board[k]));
             }
             memset(board[0], 0, sizeof(board[0]));
-            i++; // 重新检查当前行
         }
     }
 }
