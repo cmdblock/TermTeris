@@ -5,8 +5,8 @@
 #include <time.h>
 
 // 游戏区域大小
-#define WIDTH 12
-#define HEIGHT 20
+#define WIDTH 10    // 修改为10列
+#define HEIGHT 20   // 保持20行
 
 // 方块形状定义
 const int SHAPES[7][4][4] = {
@@ -121,7 +121,7 @@ void spawnBlock() {
     int type = rand() % 7;
     memcpy(currentShape, SHAPES[type], sizeof(currentShape));
     currentX = WIDTH / 2 - 2;
-    currentY = 0;
+    currentY = HEIGHT - 1;  // 从顶部开始（Y=19）
     
     if (checkCollision(currentX, currentY)) {
         gameOver = 1;
@@ -134,10 +134,10 @@ int checkCollision(int x, int y) {
         for (int j = 0; j < 4; j++) {
             if (currentShape[i][j]) {
                 int newX = x + j;
-                int newY = y + i;
+                int newY = y - i;  // 反转Y轴方向
                 
-                if (newX < 0 || newX >= WIDTH || newY >= HEIGHT ||
-                    (newY >= 0 && board[newY][newX])) {
+                if (newX < 0 || newX >= WIDTH || newY < 0 || newY >= HEIGHT ||
+                    (newY >= 0 && board[HEIGHT - 1 - newY][newX])) {  // 坐标系转换
                     return 1;
                 }
             }
@@ -148,29 +148,19 @@ int checkCollision(int x, int y) {
 
 // 移动方块
 void moveBlock(int dx, int dy) {
-    if (!checkCollision(currentX + dx, currentY + dy)) {
+    if (!checkCollision(currentX + dx, currentY - dy)) {  // 反转Y轴移动方向
         currentX += dx;
-        currentY += dy;
-    } else if (dy > 0) {
+        currentY -= dy;  // 反转Y轴移动方向
+        
+        // 检查死亡判定线（Y ≥ 15）
+        if (currentY <= HEIGHT - 15) {  // Y=15对应数组索引5
+            gameOver = 1;
+            return;
+        }
+    } else if (dy < 0) {  // 向下移动时碰撞
         mergeBlock();
         clearLines();
         spawnBlock();
-    }
-}
-
-// 旋转方块
-void rotateBlock() {
-    int temp[4][4];
-    memcpy(temp, currentShape, sizeof(temp));
-    
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            currentShape[i][j] = temp[3-j][i];
-        }
-    }
-    
-    if (checkCollision(currentX, currentY)) {
-        memcpy(currentShape, temp, sizeof(currentShape));
     }
 }
 
@@ -178,8 +168,11 @@ void rotateBlock() {
 void mergeBlock() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
-            if (currentShape[i][j] && currentY + i >= 0) {
-                board[currentY + i][currentX + j] = currentShape[i][j];
+            if (currentShape[i][j]) {
+                int boardY = HEIGHT - 1 - (currentY - i);  // 坐标系转换
+                if (boardY >= 0 && boardY < HEIGHT) {
+                    board[boardY][currentX + j] = currentShape[i][j];
+                }
             }
         }
     }
@@ -204,6 +197,22 @@ void clearLines() {
             memset(board[0], 0, sizeof(board[0]));
             i++; // 重新检查当前行
         }
+    }
+}
+
+// 旋转方块
+void rotateBlock() {
+    int temp[4][4];
+    memcpy(temp, currentShape, sizeof(temp));
+    
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            currentShape[i][j] = temp[3-j][i];
+        }
+    }
+    
+    if (checkCollision(currentX, currentY)) {
+        memcpy(currentShape, temp, sizeof(currentShape));
     }
 }
 
