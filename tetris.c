@@ -82,15 +82,17 @@ void initGame() {
 }
 
 // 在控制台绘制游戏界面
+// 定义缓冲区
+char buffer[HEIGHT][WIDTH * 2 + 1];  // *2是因为中文字符占2字节，+1是为了存放换行符
+
 void drawBoard() {
-    system("cls");
-    printf("Score: %d\n", score);
+    // 先在缓冲区中绘制
+    sprintf(buffer[0], "Score: %d\n", score);
     
     for (int i = 0; i < HEIGHT; i++) {
         for (int j = 0; j < WIDTH; j++) {
             int show = board[i][j];
             
-            // 显示当前方块
             if (i >= currentY && i < currentY + 4 &&
                 j >= currentX && j < currentX + 4) {
                 if (currentShape[i - currentY][j - currentX] == 1) {
@@ -98,10 +100,20 @@ void drawBoard() {
                 }
             }
             
-            printf(show ? "■" : "□");
+            // 写入缓冲区
+            buffer[i+1][j*2] = show ? "■"[0] : "□"[0];
+            buffer[i+1][j*2+1] = show ? "■"[1] : "□"[1];
         }
-        printf("\n");
+        buffer[i+1][WIDTH*2] = '\n';
     }
+    buffer[HEIGHT+1][0] = '\0';
+    
+    // 移动光标到开始位置
+    COORD coord = {0, 0};
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+    
+    // 一次性输出整个缓冲区
+    printf("%s", buffer);
 }
 
 // 生成新方块
