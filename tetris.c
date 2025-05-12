@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <conio.h>
 #include <time.h>
+#include <stdbool.h>  // 添加布尔类型支持
 
 // 游戏区域大小
 #define WIDTH 10    // 修改为10列
@@ -74,6 +75,16 @@ void hideCursor() {
 
 // 初始化游戏
 void initGame() {
+    // 设置控制台窗口和缓冲区大小
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    SMALL_RECT windowSize = {0, 0, WIDTH * 2 + 10, HEIGHT + 3};  // 考虑中文字符宽度和额外信息
+    COORD bufferSize = {WIDTH * 2 + 11, HEIGHT + 4};
+    
+    // 设置缓冲区大小
+    SetConsoleScreenBufferSize(hConsole, bufferSize);
+    // 设置窗口大小
+    SetConsoleWindowInfo(hConsole, TRUE, &windowSize);
+    
     memset(board, 0, sizeof(board));
     score = 0;
     gameOver = 0;
@@ -82,13 +93,15 @@ void initGame() {
 }
 
 // 在控制台绘制游戏界面
-// 定义缓冲区
-char buffer[HEIGHT][WIDTH * 2 + 1];  // *2是因为中文字符占2字节，+1是为了存放换行符
-
 void drawBoard() {
-    // 先在缓冲区中绘制
-    sprintf(buffer[0], "Score: %d\n", score);
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    static CHAR_INFO buffer[HEIGHT * (WIDTH * 2 + 1)];  // 创建缓冲区
+    COORD bufferSize = {WIDTH * 2, HEIGHT};  // 设置缓冲区大小
+    COORD bufferCoord = {0, 0};  // 缓冲区起始坐标
+    SMALL_RECT writeRegion = {0, 2, WIDTH * 2 - 1, HEIGHT + 1};  // 写入区域
     
+    // 准备缓冲区数据
+    int index = 0;
     for (int i = 0; i < HEIGHT; i++) {
         for (int j = 0; j < WIDTH; j++) {
             int show = board[i][j];
@@ -100,20 +113,28 @@ void drawBoard() {
                 }
             }
             
-            // 写入缓冲区
-            buffer[i+1][j*2] = show ? "■"[0] : "□"[0];
-            buffer[i+1][j*2+1] = show ? "■"[1] : "□"[1];
+            // 设置方块字符（每个方块占用两个字符位置）
+            wchar_t blockChar = show ? L'■' : L'□';
+            WORD attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+            
+            // 写入方块的两个字符位置
+            buffer[index].Char.UnicodeChar = blockChar;
+            buffer[index].Attributes = attributes;
+            index++;
+            buffer[index].Char.UnicodeChar = L' ';
+            buffer[index].Attributes = attributes;
+            index++;
         }
-        buffer[i+1][WIDTH*2] = '\n';
     }
-    buffer[HEIGHT+1][0] = '\0';
     
-    // 移动光标到开始位置
-    COORD coord = {0, 0};
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+    // 一次性写入整个游戏区域
+    WriteConsoleOutputW(hConsole, buffer, bufferSize, bufferCoord, &writeRegion);
     
-    // 一次性输出整个缓冲区
-    printf("%s", buffer);
+    // 更新分数显示（使用单独的写入操作）
+    COORD scorePos = {0, 0};
+    SetConsoleCursorPosition(hConsole, scorePos);
+    printf("Score: %d", score);
+    fflush(stdout);  // 立即刷新输出缓冲区
 }
 
 // 生成新方块
@@ -247,31 +268,45 @@ int main() {
     initGame();
     spawnBlock();
     
+    DWORD lastRender = GetTickCount();
+    DWORD lastDrop = GetTickCount();
+    const DWORD RENDER_INTERVAL = 50;    // 降低帧率到20FPS
+    const DWORD DROP_INTERVAL = 1000;    // 保持1秒下落一格
+    
     while (!gameOver) {
-        drawBoard();
+        DWORD currentTime = GetTickCount();
+        bool needRender = false;
         
+        // 处理键盘输入
         if (_kbhit()) {
             char key = _getch();
             switch (key) {
-                case 'a': moveBlock(-1, 0); break;  // 左移
-                case 'd': moveBlock(1, 0); break;   // 右移
-                case 's': moveBlock(0, 1); break;   // 加速下落
-                case 'w': rotateBlock(); break;     // 旋转
-                case 'q': gameOver = 1; break;      // 退出
+                case 'a': moveBlock(-1, 0); needRender = true; break;
+                case 'd': moveBlock(1, 0); needRender = true; break;
+                case 's': moveBlock(0, 1); needRender = true; break;
+                case 'w': rotateBlock(); needRender = true; break;
+                case 'q': gameOver = 1; break;
             }
         }
         
-        // 自动下落
-        static clock_t lastDrop = 0;
-        if (clock() - lastDrop > CLOCKS_PER_SEC) {
+        // 控制自动下落
+        if (currentTime - lastDrop >= DROP_INTERVAL) {
             moveBlock(0, 1);
-            lastDrop = clock();
+            lastDrop = currentTime;
+            needRender = true;
         }
         
-        Sleep(50); // 控制游戏速度
+        // 只在需要时进行渲染
+        if (needRender || currentTime - lastRender >= RENDER_INTERVAL) {
+            drawBoard();
+            lastRender = GetTickCount();  // 使用新的时间戳
+        }
+        
+        Sleep(10);  // 增加休眠时间，减少CPU使用率
     }
     
     system("cls");
     printf("游戏结束！最终得分：%d\n", score);
+    fflush(stdout);
     return 0;
 }
