@@ -114,14 +114,14 @@ void drawBoard() {
             }
             
             // 设置方块字符（每个方块占用两个字符位置）
-            wchar_t blockChar = show ? L'■' : L'□';
+            wchar_t blockChar = show ? L'X' : L'.';  // 使用X表示实心方块，.表示空白
             WORD attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
             
             // 写入方块的两个字符位置
             buffer[index].Char.UnicodeChar = blockChar;
             buffer[index].Attributes = attributes;
             index++;
-            buffer[index].Char.UnicodeChar = L' ';
+            buffer[index].Char.UnicodeChar = L' ';  // 每个方块后面加一个空格，保持间距
             buffer[index].Attributes = attributes;
             index++;
         }
