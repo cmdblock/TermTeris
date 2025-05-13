@@ -138,15 +138,79 @@ void drawBoard() {
 }
 
 // 生成新方块
+// 生成新方块
 void spawnBlock() {
     int type = rand() % 7;
     memcpy(currentShape, SHAPES[type], sizeof(currentShape));
     currentX = WIDTH / 2 - 2;
-    currentY = HEIGHT - 1;  // 从顶部开始（Y=19）
+    currentY = 0;  // 从顶部开始
     
+    // 检查是否可以生成新方块，如果不能则游戏结束
     if (checkCollision(currentX, currentY)) {
         gameOver = 1;
     }
+}
+
+// 移动方块
+void moveBlock(int dx, int dy) {
+    if (!checkCollision(currentX + dx, currentY + dy)) {
+        currentX += dx;
+        currentY += dy;
+    } else if (dy > 0) {  // 向下移动碰撞时
+        mergeBlock();
+        clearLines();
+        spawnBlock();  // 生成新方块，这里会检查游戏是否结束
+    }
+}
+
+int main() {
+    initGame();
+    spawnBlock();
+    
+    DWORD lastRender = GetTickCount();
+    DWORD lastDrop = GetTickCount();
+    const DWORD RENDER_INTERVAL = 50;    // 降低帧率到20FPS
+    const DWORD DROP_INTERVAL = 1000;    // 保持1秒下落一格
+    
+    while (!gameOver) {
+        DWORD currentTime = GetTickCount();
+        bool needRender = false;
+        
+        // 处理键盘输入
+        if (_kbhit()) {
+            char key = _getch();
+            switch (key) {
+                case 'a': moveBlock(-1, 0); needRender = true; break;
+                case 'd': moveBlock(1, 0); needRender = true; break;
+                case 's': moveBlock(0, 1); needRender = true; break;
+                case 'w': rotateBlock(); needRender = true; break;
+                case 'q': gameOver = 1; break;
+            }
+        }
+        
+        // 控制自动下落
+        if (currentTime - lastDrop >= DROP_INTERVAL) {
+            moveBlock(0, 1);
+            lastDrop = currentTime;
+            needRender = true;
+        }
+        
+        // 只在需要时进行渲染
+        if (needRender || currentTime - lastRender >= RENDER_INTERVAL) {
+            drawBoard();
+            lastRender = GetTickCount();
+        }
+        
+        Sleep(10);
+    }
+    
+    // 游戏结束时，保持窗口显示
+    system("cls");
+    printf("游戏结束！最终得分：%d\n", score);
+    printf("按任意键退出...\n");
+    fflush(stdout);
+    _getch();  // 等待用户按键后退出
+    return 0;
 }
 
 // 检查碰撞
@@ -155,10 +219,10 @@ int checkCollision(int x, int y) {
         for (int j = 0; j < 4; j++) {
             if (currentShape[i][j]) {
                 int newX = x + j;
-                int newY = y - i;  // 反转Y轴方向
+                int newY = y + i;  // 移除Y轴反转
                 
                 if (newX < 0 || newX >= WIDTH || newY < 0 || newY >= HEIGHT ||
-                    (newY >= 0 && board[HEIGHT - 1 - newY][newX])) {  // 坐标系转换
+                    board[newY][newX]) {  // 简化坐标访问
                     return 1;
                 }
             }
@@ -167,30 +231,12 @@ int checkCollision(int x, int y) {
     return 0;
 }
 
-// 移动方块
-void moveBlock(int dx, int dy) {
-    if (!checkCollision(currentX + dx, currentY - dy)) {  // 反转Y轴移动方向
-        currentX += dx;
-        currentY -= dy;  // 反转Y轴移动方向
-        
-        // 检查死亡判定线（Y ≥ 15）
-        if (currentY <= HEIGHT - 15) {  // Y=15对应数组索引5
-            gameOver = 1;
-            return;
-        }
-    } else if (dy < 0) {  // 向下移动时碰撞
-        mergeBlock();
-        clearLines();
-        spawnBlock();
-    }
-}
-
 // 将方块合并到游戏板
 void mergeBlock() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             if (currentShape[i][j]) {
-                int boardY = HEIGHT - 1 - (currentY - i);  // 坐标系转换
+                int boardY = currentY + i;  // 简化坐标计算
                 if (boardY >= 0 && boardY < HEIGHT) {
                     board[boardY][currentX + j] = currentShape[i][j];
                 }
@@ -262,51 +308,4 @@ void rotateBlock() {
     if (checkCollision(currentX, currentY)) {
         memcpy(currentShape, temp, sizeof(currentShape));
     }
-}
-
-int main() {
-    initGame();
-    spawnBlock();
-    
-    DWORD lastRender = GetTickCount();
-    DWORD lastDrop = GetTickCount();
-    const DWORD RENDER_INTERVAL = 50;    // 降低帧率到20FPS
-    const DWORD DROP_INTERVAL = 1000;    // 保持1秒下落一格
-    
-    while (!gameOver) {
-        DWORD currentTime = GetTickCount();
-        bool needRender = false;
-        
-        // 处理键盘输入
-        if (_kbhit()) {
-            char key = _getch();
-            switch (key) {
-                case 'a': moveBlock(-1, 0); needRender = true; break;
-                case 'd': moveBlock(1, 0); needRender = true; break;
-                case 's': moveBlock(0, 1); needRender = true; break;
-                case 'w': rotateBlock(); needRender = true; break;
-                case 'q': gameOver = 1; break;
-            }
-        }
-        
-        // 控制自动下落
-        if (currentTime - lastDrop >= DROP_INTERVAL) {
-            moveBlock(0, 1);
-            lastDrop = currentTime;
-            needRender = true;
-        }
-        
-        // 只在需要时进行渲染
-        if (needRender || currentTime - lastRender >= RENDER_INTERVAL) {
-            drawBoard();
-            lastRender = GetTickCount();  // 使用新的时间戳
-        }
-        
-        Sleep(10);  // 增加休眠时间，减少CPU使用率
-    }
-    
-    system("cls");
-    printf("游戏结束！最终得分：%d\n", score);
-    fflush(stdout);
-    return 0;
 }
