@@ -95,10 +95,21 @@ void initGame() {
 // 在控制台绘制游戏界面
 void drawBoard() {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    static CHAR_INFO buffer[HEIGHT * (WIDTH * 2 + 1)];  // 创建缓冲区
-    COORD bufferSize = {WIDTH * 2, HEIGHT};  // 设置缓冲区大小
-    COORD bufferCoord = {0, 0};  // 缓冲区起始坐标
-    SMALL_RECT writeRegion = {0, 2, WIDTH * 2 - 1, HEIGHT + 1};  // 写入区域
+    
+    // 先绘制分数（在游戏区域上方）
+    COORD scorePos = {0, 2};  // 修改为第2行（索引2）
+    SetConsoleCursorPosition(hConsole, scorePos);
+    char scoreText[32];
+    sprintf(scoreText, "Score: %d", score);
+    DWORD written;
+    WriteConsoleA(hConsole, scoreText, strlen(scoreText), &written, NULL);
+    
+    // 创建游戏区域缓冲区
+    static CHAR_INFO buffer[HEIGHT * (WIDTH * 2 + 1)];
+    COORD bufferSize = {WIDTH * 2, HEIGHT};
+    COORD bufferCoord = {0, 0};
+    // 修改写入区域，将游戏区域下移到第3行
+    SMALL_RECT writeRegion = {0, 3, WIDTH * 2 - 1, HEIGHT + 3};  // 修改起始位置为3
     
     // 准备缓冲区数据
     int index = 0;
@@ -113,28 +124,21 @@ void drawBoard() {
                 }
             }
             
-            // 设置方块字符（每个方块占用两个字符位置）
-            wchar_t blockChar = show ? L'X' : L'.';  // 使用X表示实心方块，.表示空白
+            // 设置方块字符
+            wchar_t blockChar = show ? L'X' : L'.';
             WORD attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
             
-            // 写入方块的两个字符位置
             buffer[index].Char.UnicodeChar = blockChar;
             buffer[index].Attributes = attributes;
             index++;
-            buffer[index].Char.UnicodeChar = L' ';  // 每个方块后面加一个空格，保持间距
+            buffer[index].Char.UnicodeChar = L' ';
             buffer[index].Attributes = attributes;
             index++;
         }
     }
     
-    // 一次性写入整个游戏区域
+    // 写入游戏区域
     WriteConsoleOutputW(hConsole, buffer, bufferSize, bufferCoord, &writeRegion);
-    
-    // 更新分数显示（使用单独的写入操作）
-    COORD scorePos = {0, 0};
-    SetConsoleCursorPosition(hConsole, scorePos);
-    printf("Score: %d", score);
-    fflush(stdout);  // 立即刷新输出缓冲区
 }
 
 // 生成新方块
