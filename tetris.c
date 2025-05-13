@@ -49,12 +49,14 @@ const int SHAPES[7][4][4] = {
 };
 
 // 游戏状态
+// 游戏状态
 int board[HEIGHT][WIDTH] = {0};
 int currentShape[4][4] = {0};
 int currentX = 0;
 int currentY = 0;
 int score = 0;
 int gameOver = 0;
+int rotationAngle = 0;  // 添加旋转角度变量
 
 // 函数声明
 void initGame();
@@ -96,20 +98,27 @@ void initGame() {
 void drawBoard() {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     
-    // 先绘制分数（在游戏区域上方）
-    COORD scorePos = {0, 2};  // 修改为第2行（索引2）
+    // 先绘制旋转角度和水平位置（在第2行）
+    COORD infoPos = {0, 2};
+    SetConsoleCursorPosition(hConsole, infoPos);
+    char infoText[32];
+    sprintf(infoText, "角度: %d 位置: %d", rotationAngle, currentX);
+    DWORD written;
+    WriteConsoleA(hConsole, infoText, strlen(infoText), &written, NULL);
+    
+    // 绘制分数（在第3行）
+    COORD scorePos = {0, 3};
     SetConsoleCursorPosition(hConsole, scorePos);
     char scoreText[32];
     sprintf(scoreText, "Score: %d", score);
-    DWORD written;
     WriteConsoleA(hConsole, scoreText, strlen(scoreText), &written, NULL);
     
     // 创建游戏区域缓冲区
     static CHAR_INFO buffer[HEIGHT * (WIDTH * 2 + 1)];
     COORD bufferSize = {WIDTH * 2, HEIGHT};
     COORD bufferCoord = {0, 0};
-    // 修改写入区域，将游戏区域下移到第3行
-    SMALL_RECT writeRegion = {0, 3, WIDTH * 2 - 1, HEIGHT + 3};  // 修改起始位置为3
+    // 修改写入区域，将游戏区域下移到第4行
+    SMALL_RECT writeRegion = {0, 4, WIDTH * 2 - 1, HEIGHT + 4};  // 修改起始位置为4
     
     // 准备缓冲区数据
     int index = 0;
@@ -311,5 +320,8 @@ void rotateBlock() {
     
     if (checkCollision(currentX, currentY)) {
         memcpy(currentShape, temp, sizeof(currentShape));
+    } else {
+        // 更新旋转角度
+        rotationAngle = (rotationAngle + 90) % 360;
     }
 }
